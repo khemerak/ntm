@@ -1,4 +1,4 @@
-module github.com/khemerak/ntm-project
+module ntm
 
 go 1.26.3
 

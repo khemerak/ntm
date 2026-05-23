@@ -66,7 +66,6 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 		"--newline",
 		"--js-runtimes",
 		"node",
-		"deno",
 		"-N", "8",
 		"-o", fmt.Sprintf("%s/%%(title)s.%%(ext)s", outputDir),
 	}

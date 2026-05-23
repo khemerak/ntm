@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/khemerak/ntm/internal/extractor"
 	"github.com/spf13/cobra"
+	"ntm/internal/extractor"
 	"os"
 	"path/filepath"
 )

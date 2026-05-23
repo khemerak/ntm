@@ -2,7 +2,7 @@
 
 `ntm` is a lightning-fast, zero-friction CLI media downloader written in Go. It acts as a smart wrapper around `yt-dlp`, but removes the headache of managing Python dependencies, keeping binaries updated, or struggling with slow single-threaded download speeds. 
 
-Just give it a URL, and it does the rest.
+Just give it a URL, and it does the rest. (Currently supporting only YouTube URL.)
 
 ## Features
 

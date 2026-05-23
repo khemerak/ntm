@@ -42,7 +42,7 @@ brew install ffmpeg
 Install the latest version globally using the automated install script:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/khemearak/ntm/main/install.sh) | bash
+curl -sL https://raw.githubusercontent.com/khemearak/ntm/main/install.sh | bash
 
 ```
 

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -103,37 +104,56 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 
 	progressRe := regexp.MustCompile(`\[download\]\s+(~?\s*[0-9\.]+)%`)
 	scanner := bufio.NewScanner(reader)
+
 	spinner := []string{"|", "/", "-", "\\"}
 	spinnerIndex := 0
+
 	var isExtracting bool
 	var isMerging bool
+	barWidth := 40
+	fmt.Println()
 
 	for scanner.Scan() {
 		line := scanner.Text()
+
 		if match := progressRe.FindStringSubmatch(line); len(match) > 1 {
-			s := spinner[spinnerIndex]
-			spinnerIndex = (spinnerIndex + 1) % len(spinner)
-			fmt.Printf("\r\033[K[%s] Downloading: %s%%", s, strings.TrimSpace(match[1]))
+			cleanPercent := strings.TrimSpace(strings.ReplaceAll(match[1], "~", ""))
+			percentFloat, err := strconv.ParseFloat(cleanPercent, 64)
+
+			if err == nil {
+				completedSteps := int((percentFloat / 100.0) * float64(barWidth))
+				if completedSteps > barWidth {
+					completedSteps = barWidth
+				}
+				uncompletedSteps := barWidth - completedSteps
+
+				bar := strings.Repeat("█", completedSteps) + strings.Repeat("░", uncompletedSteps)
+
+				s := spinner[spinnerIndex]
+				spinnerIndex = (spinnerIndex + 1) % len(spinner)
+
+				fmt.Printf("\r\033[K  \033[36m[\033[0m %s \033[36m]\033[0m Downloading media \033[36m[%s]\033[0m %5s%%", s, bar, cleanPercent)
+			}
 		} else if strings.Contains(line, "[ExtractAudio]") {
 			if !isExtracting {
-				fmt.Printf("\r\033[K[AUDIO] Extracting audio (this may take a moment)...\n")
+				fmt.Printf("\n  \033[33m[\033[0m * \033[33m]\033[0m Extracting audio track...")
 				isExtracting = true
 			}
 		} else if strings.Contains(line, "[Merger]") {
 			if !isMerging {
-				fmt.Printf("\r\033[K[MERGE] Merging video and audio tracks...")
+				fmt.Printf("\n\n  \033[33m[\033[0m * \033[33m]\033[0m Merging video and audio tracks...")
 				isMerging = true
 			}
 		} else if strings.Contains(line, "has already been downloaded") {
-			fmt.Printf("\r\033[K[WARN] File already exists. Pass --force to overwrite.\n")
-		} else if strings.Contains(line, "ERROR:") {
-			fmt.Printf("\r\033[K[ERROR] %s\n", strings.TrimPrefix(line, "ERROR:"))
-		} else if strings.Contains(line, "WARNING:") {
-			fmt.Printf("\r\033[K[WARN] %s\n", strings.TrimPrefix(line, "WARNING:"))
+			fmt.Printf("\n  \033[33m[\033[0m ! \033[33m]\033[0m File already exists. Pass --force to overwrite.")
+		} else if strings.Contains(line, "ERROR:") || strings.Contains(line, "WARNING:") {
+			fmt.Printf("\n  \033[31m[\033[0m ! \033[31m]\033[0m %s\n", line)
 		}
 	}
+
 	fmt.Println()
 	return nil
+
 }
 
 func ensureYTDLP() (string, error) {

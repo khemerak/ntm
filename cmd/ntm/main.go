@@ -22,35 +22,49 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		targetURL := args[0]
 
-		fmt.Printf("Analyzing target: %s\n", targetURL)
+		fmt.Println("\n  \033[36m┌──────────────────────────────────────────┐\033[0m")
+		fmt.Println("  \033[36m│\033[0m                                          \033[36m│\033[0m")
+		fmt.Println("  \033[36m│\033[0m       \033[1mNTM : MEDIA DOWNLOADER      \033[0m       \033[36m│\033[0m")
+		fmt.Println("  \033[36m│\033[0m                                          \033[36m│\033[0m")
+		fmt.Println("  \033[36m└──────────────────────────────────────────┘\033[0m\n")
+
+		fmt.Printf("  \033[36m[\033[0m i \033[36m]\033[0m Target  : %s\n", targetURL)
+		fmt.Printf("  \033[36m[\033[0m i \033[36m]\033[0m Output  : %s\n", outputDir)
+
+		if audioOnly {
+			fmt.Printf("  \033[36m[\033[0m i \033[36m]\033[0m Mode    : Audio Only (MP3)\n\n")
+		} else {
+			fmt.Printf("  \033[36m[\033[0m i \033[36m]\033[0m Mode    : Video (%s)\n\n", quality)
+		}
 
 		ext, err := extractor.NewYTDLPExtractor()
 		if err != nil {
-			fmt.Printf("Error : %v", err)
-			os.Exit(1)
-		}
-		if !ext.CanHandle(targetURL) {
-			fmt.Println("Error: Unsupported URL. Currently supporting YouTube formats.")
+			fmt.Printf("  \033[31m[\033[0m ! \033[31m]\033[0m Error: %v\n", err)
 			os.Exit(1)
 		}
 
-		fmt.Println("Fetching metadata...")
-		meta, err := ext.ExtractMetadata(targetURL)
-		if err != nil {
-			fmt.Printf("Warning: Could not fetch metadata %v.", err)
-		} else {
-			fmt.Printf("Found: %s (%dseconds)\n", meta.Title, meta.DurationSec)
-		}
-		fmt.Printf("Initializing Download to: %s\n", outputDir)
-		if audioOnly {
-			fmt.Println("Mode: MP3 Download")
-		}
-		err = ext.Download(targetURL, outputDir, audioOnly, quality, force)
-		if err != nil {
-			fmt.Printf("Download Failed: %v\n", err)
+		if !ext.CanHandle(targetURL) {
+			fmt.Println("  \033[31m[\033[0m ! \033[31m]\033[0m Error: Unsupported URL format.")
 			os.Exit(1)
 		}
-		fmt.Println("\n✓ Download completed successfully!")
+
+		fmt.Println("  \033[33m[\033[0m * \033[33m]\033[0m Fetching metadata...")
+		meta, err := ext.ExtractMetadata(targetURL)
+		if err != nil {
+			fmt.Printf("  \033[31m[\033[0m ! \033[31m]\033[0m Warning: Could not fetch metadata.\n")
+		} else {
+			fmt.Printf("  \033[32m[\033[0m * \033[32m]\033[0m Found   : %s (%ds)\n", meta.Title, meta.DurationSec)
+		}
+
+		//fmt.Println("\n  \033[33m[\033[0m * \033[33m]\033[0m Downloading streams...")
+
+		err = ext.Download(targetURL, outputDir, audioOnly, quality, force)
+		if err != nil {
+			fmt.Printf("\n  \033[31m[\033[0m ! \033[31m]\033[0m Download failed: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("\n  \033[32m[\033[0m ✓ \033[32m]\033[0m Download completed successfully.\n")
 	},
 }
 

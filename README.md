@@ -4,6 +4,26 @@
 
 Just give it a URL, and it does the rest. (Currently supporting only YouTube URL.)
 
+## Preview
+```bash
+  ┌──────────────────────────────────────────┐
+  │                                          │
+  │       NTM : MEDIA DOWNLOADER             │
+  │                                          │
+  └──────────────────────────────────────────┘
+
+  [ i ] Target  : https://youtu.be/example
+  [ i ] Output  : /example/directory/Downloads
+  [ i ] Mode    : Audio Only (MP3)
+
+  [ * ] Fetching metadata...
+  [ * ] Found   : Example | song - video (300s)
+
+  [ | ] Downloading media [██████████████████████████████░░░░░░░░░░]   75%
+  [ * ] Extracting audio track...
+
+  [ ✓ ] Download completed successfully.
+```
 ## Features
 
 - **Zero-Setup Extractor:** `ntm` automatically bootstraps the latest standalone `yt-dlp` binary into your `~/.config/ntm/bin` on first run. No Python environment required.

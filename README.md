@@ -8,20 +8,17 @@ Just give it a URL, and it does the rest. (Currently supporting only YouTube URL
 ```bash
   ┌──────────────────────────────────────────┐
   │                                          │
-  │       NTM : MEDIA DOWNLOADER             │
+  │          NTM : MEDIA DOWNLOADER          │
   │                                          │
   └──────────────────────────────────────────┘
 
-  [ i ] Target  : https://youtu.be/example
+  [ i ] Target  : https://www.youtube.com/watch?v=example
   [ i ] Output  : /example/directory/Downloads
-  [ i ] Mode    : Audio Only (MP3)
+  [ i ] Mode    : Audio Only (M4A)
 
-  [ * ] Fetching metadata...
-  [ * ] Found   : Example | song - video (300s)
-
-  [ | ] Downloading media [██████████████████████████████░░░░░░░░░░]   75%
-  [ * ] Extracting audio track...
-
+  [ * ] Connecting to stream...
+  [ * ] Found   : EXAMPLE_-_OFFICIAL_MUSIC_VIDEO
+  [ / ] Downloading media [██████████████████████████████░░░░░░░░░░]   75.0%
   [ ✓ ] Download completed successfully.
 ```
 ## Features

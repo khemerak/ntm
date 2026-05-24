@@ -33,7 +33,7 @@ func (e *YTDLPExtractor) CanHandle(url string) bool {
 }
 
 func (e *YTDLPExtractor) ExtractMetadata(url string) (*Metadata, error) {
-	cmd := exec.Command(e.binaryPath, "--dump-json", url)
+	cmd := exec.Command(e.binaryPath, "--dump-json", "--no-playlist", url)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -65,9 +65,13 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 
 	args := []string{
 		"--newline",
-		"--js-runtimes",
-		"node",
-		"-N", "8",
+		"--js-runtimes", "node",
+		"--no-playlist",
+		"--restrict-filenames",
+		//"--no-warnings",
+		"-4",
+		"--extractor-args", "youtube:player_client=web",
+		"-N", "4",
 		"-o", fmt.Sprintf("%s/%%(title)s.%%(ext)s", outputDir),
 	}
 	if force {
@@ -75,7 +79,7 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 	}
 
 	if audioOnly {
-		args = append(args, "-x", "--audio-format", "mp3")
+		args = append(args, "-f", "bestaudio/best", "-x") //, "--audio-format", "m4a", "--audio-quality", "0")
 	} else {
 		formatStr := "bestvideo+bestaudio/best"
 		if quality == "1080p" {
@@ -97,8 +101,9 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start download: %v", err)
 	}
+	errCh := make(chan error, 1)
 	go func() {
-		cmd.Wait()
+		errCh <- cmd.Wait()
 		writer.Close()
 	}()
 
@@ -110,11 +115,23 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 
 	var isExtracting bool
 	var isMerging bool
+	var hasPrintedMetadata bool
+
 	barWidth := 40
 	fmt.Println()
 
 	for scanner.Scan() {
 		line := scanner.Text()
+
+		if !hasPrintedMetadata && strings.Contains(line, "[download] Destination:") {
+			fullPath := strings.TrimSpace(strings.TrimPrefix(line, "[download] Destination:"))
+			filename := filepath.Base(fullPath)
+			ext := filepath.Ext(filename)
+			cleanTitle := strings.TrimSuffix(filename, ext)
+
+			fmt.Printf("\r\033[K  \033[32m[\033[0m * \033[32m]\033[0m Found   : %s\n", cleanTitle)
+			hasPrintedMetadata = true
+		}
 
 		if match := progressRe.FindStringSubmatch(line); len(match) > 1 {
 			cleanPercent := strings.TrimSpace(strings.ReplaceAll(match[1], "~", ""))
@@ -146,14 +163,21 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 			}
 		} else if strings.Contains(line, "has already been downloaded") {
 			fmt.Printf("\n  \033[33m[\033[0m ! \033[33m]\033[0m File already exists. Pass --force to overwrite.")
+		} else if strings.Contains(strings.ToLower(line), "error:") {
+			parts := strings.SplitN(strings.ToLower(line), "error:", 2)
+			cleanErr := strings.TrimSpace(parts[len(parts)-1])
+			fmt.Printf("\r\033[K  \033[31m[\033[0m ERROR \033[31m]\033[0m %s\n", cleanErr)
 		} else if strings.Contains(line, "ERROR:") || strings.Contains(line, "WARNING:") {
 			fmt.Printf("\n  \033[31m[\033[0m ! \033[31m]\033[0m %s\n", line)
 		}
 	}
 
 	fmt.Println()
-	return nil
+	if err := <-errCh; err != nil {
+		return fmt.Errorf("process has crashed: %v", err)
+	}
 
+	return nil
 }
 
 func ensureYTDLP() (string, error) {
@@ -201,4 +225,8 @@ func ensureYTDLP() (string, error) {
 	}
 
 	return binPath, nil
+}
+
+func (e *YTDLPExtractor) GetBinaryPath() string {
+	return e.binaryPath
 }

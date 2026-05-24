@@ -21,6 +21,11 @@ Just give it a URL, and it does the rest. (Currently supporting only YouTube URL
   [ / ] Downloading media [██████████████████████████████░░░░░░░░░░]   75.0%
   [ ✓ ] Download completed successfully.
 ```
+---
+
+![NTM v0.0.2 UI Preview](./img/preview.png)
+
+
 ## Features
 
 - **Zero-Setup Extractor:** `ntm` automatically bootstraps the latest standalone `yt-dlp` binary into your `~/.config/ntm/bin` on first run. No Python environment required.

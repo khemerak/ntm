@@ -13,7 +13,12 @@ if (-not $LatestTag) {
     exit 1
 }
 
-$Arch = ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") ? "amd64" : "arm64"
+if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") {
+    $Arch = "amd64"
+} else {
+    $Arch = "arm64"
+}
+
 $BinaryName = "ntm-windows-${Arch}.exe"
 $DownloadUrl = "https://github.com/$Repo/releases/download/$LatestTag/$BinaryName"
 
@@ -31,7 +36,12 @@ $UserPath = [Environment]::GetEnvironmentVariable("PATH","User")
 if ($UserPath -notmatch [regex]::Escape($InstallDir)) {
     Write-Host "Adding $InstallDir to User PATH..." -ForegroundColor Yellow
     
-    $Suffix = ($UserPath.EndsWith(";")) ? "" : ";"
+    if ($UserPath.EndsWith(";")) {
+        $Suffix = ""
+    } else {
+        $Suffix = ";"
+    }
+    
     $NewPath = $UserPath + $Suffix + $InstallDir
     
     [Environment]::SetEnvironmentVariable("PATH", $NewPath, "User")

@@ -30,7 +30,10 @@ Invoke-WebRequest -Uri $DownloadUrl -OutFile $ExePath
 $UserPath = [Environment]::GetEnvironmentVariable("PATH","User")
 if ($UserPath -notmatch [regex]::Escape($InstallDir)) {
     Write-Host "Adding $InstallDir to User PATH..." -ForegroundColor Yellow
-    $NewPath = $UserPath + (if ($UserPath.EndsWith(";")){""} else {";"}) + $InstallDir
+    
+    $Suffix = ($UserPath.EndsWith(";")) ? "" : ";"
+    $NewPath = $UserPath + $Suffix + $InstallDir
+    
     [Environment]::SetEnvironmentVariable("PATH", $NewPath, "User")
     $env:PATH = $NewPath
 }

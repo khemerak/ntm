@@ -82,7 +82,7 @@ var rootCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Println("  \033[32m[\033[0m ✓ \033[32m]\033[0m Download completed successfully.\n")
+		fmt.Println("\n  \033[32m[\033[0m ✓ \033[32m]\033[0m Download completed successfully.\n")
 	},
 }
 

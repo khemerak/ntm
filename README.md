@@ -59,13 +59,24 @@ brew install ffmpeg
 
 ```
 
+**Windows:**
+
+```powershell
+winget install Gyan.FFmpeg
+```
+
 ## Installation
 
 Install the latest version globally using the automated install script:
-
+### Linux / macOS (Bash):
 ```bash
 curl -sL https://raw.githubusercontent.com/khemerak/ntm/main/install.sh | bash
 
+```
+
+### Windows (Powershell):
+```powershell
+iwr -useb https://raw.githubusercontent.com/khemerak/ntm/main/install.ps1 | iex
 ```
 
 ## Usage

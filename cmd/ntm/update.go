@@ -122,7 +122,16 @@ func executeUpdate(downloadURL string) error {
 	}
 	tmpFile.Close()
 	if err := os.Chmod(tmpPath, 0755); err != nil {
-		return err
+		if runtime.GOOS != "windows" {
+			return err
+		}
+	}
+	if runtime.GOOS == "windows" {
+		oldPath := exePath + "old"
+		os.Remove(oldPath)
+		if err := os.Rename(exePath, oldPath); err != nil {
+			return fmt.Errorf("failed to mvoe running executable: %v", err)
+		}
 	}
 	return os.Rename(tmpPath, exePath)
 }

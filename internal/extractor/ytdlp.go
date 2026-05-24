@@ -14,10 +14,12 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"archive/zip"
 )
 
 type YTDLPExtractor struct {
 	binaryPath string
+	ffmpegBinDir string
 }
 
 func NewYTDLPExtractor() (*YTDLPExtractor, error) {
@@ -25,7 +27,18 @@ func NewYTDLPExtractor() (*YTDLPExtractor, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup yt-dlp: %v", err)
 	}
-	return &YTDLPExtractor{binaryPath: binPath}, nil
+
+	ffmpegDir, err := ensureFFTools()
+	if err != nil {
+		fmt.Printf("\n  \033[33m[\033[0m ! \033[33m]\033[0m Warning: Internal FFmpeg setup failed. Audio extraction may not work: %v\n", err)
+	}
+
+	return &YTDLPExtractor{
+		binaryPath: binPath,
+		ffmpegBinDir: ffmpegDir,
+	}, nil
+
+	
 }
 
 func (e *YTDLPExtractor) CanHandle(url string) bool {
@@ -73,6 +86,10 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 		"--extractor-args", "youtube:player_client=web",
 		"-N", "4",
 		"-o", fmt.Sprintf("%s/%%(title)s.%%(ext)s", outputDir),
+	}
+	
+	if e.ffmpegBinDir != "" {
+		args = append(args, "--ffmpeg-location", e.ffmpegBinDir)
 	}
 	if force {
 		args = append(args, "--force-overwrites")
@@ -206,7 +223,7 @@ func ensureYTDLP() (string, error) {
 	if err == nil && info.Size() > 10000000 {
 		return binPath, nil
 	}
-	fmt.Println("Downloading yt-dlp standalone binary...")
+	fmt.Println("Downloading yt-dlp standalone binary (This is a one-time installation.)...")
 
 	resp, err := http.Get(downloadURL)
 	if err != nil {
@@ -229,4 +246,111 @@ func ensureYTDLP() (string, error) {
 
 func (e *YTDLPExtractor) GetBinaryPath() string {
 	return e.binaryPath
+}
+
+func ensureFFTools() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	
+	appDir := filepath.Join(configDir, "ntm", "bin")
+	if err := os.MkdirAll(appDir, os.ModePerm); err != nil {
+		return "", err
+	}
+	
+	ffmpegName := "ffmpeg"
+	ffprobeName := "ffprobe"
+	osKey := ""
+	
+	if runtime.GOOS == "windows" {
+		ffmpegName += ".exe"
+		ffprobeName += ".exe"
+		osKey = "win-64"
+	} else if runtime.GOOS == "darwin" {
+		osKey = "macos-64"
+	} else {
+		osKey = "linux-64"
+	}
+
+	ffmpegPath := filepath.Join(appDir, ffmpegName)
+	ffprobePath := filepath.Join(appDir, ffprobeName)
+
+	fi, err1 := os.Stat(ffmpegPath)
+	pi, err2 := os.Stat(ffprobePath)
+	if err1 == nil && err2 == nil && fi.Size() > 5000000 && pi.Size() > 5000000 {
+		return appDir, nil
+	}
+
+	fmt.Println("  \033[36m[\033[0m * \033[36m]\033[0m Bootstrapping internal FFmpeg tools(This is a one-time installation of FFmpeg.)...")
+
+	baseURL := "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v6.1"
+	ffmpegURL := fmt.Sprintf("%s/ffmpeg-6.1-%s.zip", baseURL, osKey)
+	ffprobeURL := fmt.Sprintf("%s/ffprobe-6.1-%s.zip", baseURL, osKey)
+
+	if err := downloadAndExtractZip(ffmpegURL, appDir, ffmpegName); err != nil {
+		return "", fmt.Errorf("ffmpeg download failed: %v", err)
+	}
+	if err:= downloadAndExtractZip(ffprobeURL, appDir, ffprobeName); err != nil {
+		return "", fmt.Errorf("ffprobe download failed: %v", err)
+	}
+
+	return appDir, nil
+}
+
+func downloadAndExtractZip(url string, destDir string, targetBinary string) error {
+	tmpFile, err := os.CreateTemp("", "ffbin-*.zip")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpFile.Name())
+
+	resp, err := http.Get(url)
+	if err != nil {
+		tmpFile.Close()
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		tmpFile.Close()
+		return fmt.Errorf("bad HTTP status: %d %s", resp.StatusCode, resp.Status)
+	}
+
+	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
+		tmpFile.Close()
+		return err
+	}
+	tmpFile.Close()
+	
+	r, err := zip.OpenReader(tmpFile.Name())
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	
+	for _, f := range r.File {
+		baseName := filepath.Base(f.Name)
+		cleanBase := strings.TrimSuffix(baseName, ".exe")
+		cleanTarget := strings.TrimSuffix(targetBinary, ".exe")
+
+		if cleanBase == cleanTarget {
+			rc, err := f.Open()
+			if err != nil {
+				return err
+			}
+			
+			destPath := filepath.Join(destDir, targetBinary)
+			out, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+			if err != nil {
+				rc.Close()
+				return err
+			}
+			
+			_, copyErr := io.Copy(out, rc)
+			out.Close()
+			rc.Close()
+			return copyErr
+		}
+	}
+	return fmt.Errorf("Could not find %s inside the downloaded archive.", targetBinary)
 }

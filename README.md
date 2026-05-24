@@ -1,10 +1,13 @@
 # ntm - Media Downloader
 
+## V0.0.3
+
 `ntm` is a lightning-fast, zero-friction CLI media downloader written in **`Go`**. It acts as a smart wrapper around `yt-dlp`, but removes the headache of managing Python dependencies, keeping binaries updated, or struggling with slow single-threaded download speeds. 
 
 Just give it a URL, and it does the rest. (Currently supporting only YouTube URLs.)
 
 ## Preview
+
 ```bash
   ┌──────────────────────────────────────────┐
   │                                          │
@@ -21,10 +24,20 @@ Just give it a URL, and it does the rest. (Currently supporting only YouTube URL
   [ / ] Downloading media [██████████████████████████████░░░░░░░░░░]   75.0%
   [ ✓ ] Download completed successfully.
 ```
+
 ---
 
-![NTM v0.0.2 UI Preview](./img/preview.png)
+![NTM v0.0.3 UI Preview](./img/preview.png)
 
+---
+
+![NTM v0.0.3 UI Preview](./img/ntm-powershell-1.png)
+
+---
+
+![NTM v0.0.3 UI Preview](./img/ntm-powershell-2.png)
+
+---
 
 ## Features
 

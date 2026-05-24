@@ -48,5 +48,5 @@ if ($UserPath -notmatch [regex]::Escape($InstallDir)) {
     $env:PATH = $NewPath
 }
 
-Write-Host "`n✓ ntm installed successfully!" -ForegroundColor Green
-Write-Host "`nPlease restart your terminal to ensure PATH updates take effect, then run: ntm --help"
+Write-Host "ntm installed successfully!" -ForegroundColor Green
+Write-Host "Please restart your terminal to ensure PATH updates take effect, then run: ntm --help"

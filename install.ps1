@@ -13,7 +13,7 @@ if (-not $LatestTag) {
     exit 1
 }
 
-$Arch = if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") {"amd64"} else {"arm64"}
+$Arch = ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") ? "amd64" : "arm64"
 $BinaryName = "ntm-windows-${Arch}.exe"
 $DownloadUrl = "https://github.com/$Repo/releases/download/$LatestTag/$BinaryName"
 

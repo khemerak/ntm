@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 $Repo = "khemerak/ntm"
 Write-Host "Fetching latest release information for $Repo..." -ForegroundColor Cyan
 
-ApiUrl = "https://api.github.com/repos/$Repo/releases/latest"
+$ApiUrl = "https://api.github.com/repos/$Repo/releases/latest"
 $Release = Invoke-RestMethod -Uri $ApiUrl -Method Get
 $LatestTag = $Release.tag_name
 
@@ -36,6 +36,4 @@ if ($UserPath -notmatch [regex]::Escape($InstallDir)) {
 }
 
 Write-Host "`n✓ ntm installed successfully!" -ForegroundColor Green
-Write-Host "NOTE: You must install FFmpeg to run this program." -ForegroundColor Yellow 
-Write-Host "Run: winget install Gyan.FFmpeg"
 Write-Host "`nPlease restart your terminal to ensure PATH updates take effect, then run: ntm --help"

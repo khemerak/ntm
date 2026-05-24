@@ -1,8 +1,8 @@
 # ntm - Media Downloader
 
-`ntm` is a lightning-fast, zero-friction CLI media downloader written in Go. It acts as a smart wrapper around `yt-dlp`, but removes the headache of managing Python dependencies, keeping binaries updated, or struggling with slow single-threaded download speeds. 
+`ntm` is a lightning-fast, zero-friction CLI media downloader written in **`Go`**. It acts as a smart wrapper around `yt-dlp`, but removes the headache of managing Python dependencies, keeping binaries updated, or struggling with slow single-threaded download speeds. 
 
-Just give it a URL, and it does the rest. (Currently supporting only YouTube URL.)
+Just give it a URL, and it does the rest. (Currently supporting only YouTube URLs.)
 
 ## Preview
 ```bash
@@ -28,42 +28,12 @@ Just give it a URL, and it does the rest. (Currently supporting only YouTube URL
 
 ## Features
 
-- **Zero-Setup Extractor:** `ntm` automatically bootstraps the latest standalone `yt-dlp` binary into your `~/.config/ntm/bin` on first run. No Python environment required.
-- **Warp Speed:** Bypasses YouTube bandwidth throttling by automatically splitting downloads into 8 concurrent streams.
-- **Smart Defaults:** Defaults to 1080p video quality (to prevent accidental 50GB 8K downloads) and saves directly to your system's `Downloads` folder.
-- **Audio Extraction:** One flag to rip high-quality MP3s.
-- **Clean UI:** No terminal spam. Real-time, single-line progress bars and human-readable error bubbling.
+- **Zero-Dependency Ecosystem**: ntm automatically bootstraps the latest standalone yt-dlp binary along with static builds of ffmpeg and ffprobe into your local configuration directory on the very first run. No Python or system-wide codec installations are required.
+- **Warp Speed**: Bypasses bandwidth throttling constraints by automatically splitting media downloads into concurrent multi-threaded streams.
+- **Smart Defaults**: Defaults to 1080p video quality (to prevent accidental massive downloads) and routes files directly to your system's native Downloads folder.
+- **High-Speed Audio Extraction**: One flag to isolate and extract high-quality audio streams natively without unnecessary transcoding overhead.
+- **Clean UI**: Keeps terminal noise to a absolute minimum. Real-time, single-line progress bars and clear human-readable error bubbling.
 
-## Prerequisites
-
-While `ntm` handles the core extractor automatically, you need `ffmpeg` installed on your system to merge video/audio tracks and extract MP3s.
-
-**Arch Linux / CachyOS:**
-
-```bash
-sudo pacman -S ffmpeg
-
-```
-
-**Ubuntu / Debian:**
-
-```bash
-sudo apt install ffmpeg
-
-```
-
-**macOS:**
-
-```bash
-brew install ffmpeg
-
-```
-
-**Windows:**
-
-```powershell
-winget install Gyan.FFmpeg
-```
 
 ## Installation
 
@@ -117,6 +87,13 @@ ntm "https://youtu.be/example" -a -o ~/Music
 ```bash
 ntm "https://youtu.be/example" -f
 
+```
+
+## Updating
+
+To update ntm along with its underlying extractors to the latest available releases, simply invoke the built-in update route:
+```Bash
+ntm update
 ```
 
 ## Building from Source

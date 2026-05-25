@@ -1,10 +1,10 @@
 # ntm - Media Downloader
 
-## V0.0.3
+## V0.0.4
 
-`ntm` is a lightning-fast, zero-friction CLI media downloader written in **`Go`**. It acts as a smart wrapper around `yt-dlp`, but removes the headache of managing Python dependencies, keeping binaries updated, or struggling with slow single-threaded download speeds. 
+`ntm` is a lightning-fast, zero-friction CLI media downloader written in **`Go`**. It acts as a smart wrapper around `yt-dlp`, but removes the headache of managing Python dependencies, keeping binaries updated, or struggling with slow single-threaded download speeds. `ntm` is now multi-platform support.
 
-Just give it a URL, and it does the rest. (Currently supporting only YouTube URLs.)
+Just give it a URL, and it does the rest. 
 
 ## Preview
 
@@ -25,19 +25,26 @@ Just give it a URL, and it does the rest. (Currently supporting only YouTube URL
   [ ✓ ] Download completed successfully.
 ```
 
----
+**Preview on Linux**
 
 ![NTM v0.0.3 UI Preview](./img/preview.png)
 
 ---
 
-![NTM v0.0.3 UI Preview](./img/ntm-powershell-1.png)
+**Preview on Windows Powershell**
 
----
+![NTM v0.0.3 UI Preview](./img/ntm-powershell-1.png)
 
 ![NTM v0.0.3 UI Preview](./img/ntm-powershell-2.png)
 
 ---
+
+## Platform Support
+* **YouTube**
+* **TikTok**
+* **X(Twitter)**
+* **Instagram**
+* **Facebook**
 
 ## Features
 
@@ -100,6 +107,13 @@ ntm "https://youtu.be/example" -a -o ~/Music
 ```bash
 ntm "https://youtu.be/example" -f
 
+```
+## Version
+
+To see the current running version of ntm, simply run: 
+```bash
+ntm -v
+ntm --version
 ```
 
 ## Updating

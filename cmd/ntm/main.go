@@ -17,7 +17,7 @@ var (
 	force     bool
 )
 
-const Version = "dev"
+var Version = "dev"
 
 var rootCmd = &cobra.Command{
 	Use:     "ntm [url]",
@@ -107,6 +107,7 @@ func main() {
 	rootCmd.Flags().StringVarP(&quality, "quality", "q", "1080p", "Video quality: best, 1080p, 720p")
 	rootCmd.Flags().BoolVarP(&force, "force", "f", false, "Force overwrite of file exists")
 	rootCmd.AddCommand(updateCmd)
+	rootCmd.AddCommand(versionCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

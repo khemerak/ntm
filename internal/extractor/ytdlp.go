@@ -1,6 +1,7 @@
 package extractor
 
 import (
+	"archive/zip"
 	"bufio"
 	"bytes"
 	"encoding/json"
@@ -14,11 +15,10 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"archive/zip"
 )
 
 type YTDLPExtractor struct {
-	binaryPath string
+	binaryPath   string
 	ffmpegBinDir string
 }
 
@@ -34,15 +34,27 @@ func NewYTDLPExtractor() (*YTDLPExtractor, error) {
 	}
 
 	return &YTDLPExtractor{
-		binaryPath: binPath,
+		binaryPath:   binPath,
 		ffmpegBinDir: ffmpegDir,
 	}, nil
 
-	
 }
 
 func (e *YTDLPExtractor) CanHandle(url string) bool {
-	return strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be")
+	supportedDomains := []string{
+		"youtube.com", "youtu.be",
+		"tiktok.com",
+		"x.com", "twitter.com",
+		"facebook.com", "fb.watch",
+		"instagram.com",
+	}
+	lowerURL := strings.ToLower(url)
+	for _, domain := range supportedDomains {
+		if strings.Contains(lowerURL, domain) {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *YTDLPExtractor) ExtractMetadata(url string) (*Metadata, error) {
@@ -87,7 +99,7 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 		"-N", "4",
 		"-o", fmt.Sprintf("%s/%%(title)s.%%(ext)s", outputDir),
 	}
-	
+
 	if e.ffmpegBinDir != "" {
 		args = append(args, "--ffmpeg-location", e.ffmpegBinDir)
 	}
@@ -100,9 +112,9 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 	} else {
 		formatStr := "bestvideo+bestaudio/best"
 		if quality == "1080p" {
-			formatStr = "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
+			formatStr = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
 		} else if quality == "720p" {
-			formatStr = "bestvideo[height<=720]+bestaudio/best[height<=720]"
+			formatStr = "bestvideo[height<=720]+bestaudio/best[height<=720]/best"
 		}
 		args = append(args, "-f", formatStr)
 	}
@@ -253,16 +265,16 @@ func ensureFFTools() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	appDir := filepath.Join(configDir, "ntm", "bin")
 	if err := os.MkdirAll(appDir, os.ModePerm); err != nil {
 		return "", err
 	}
-	
+
 	ffmpegName := "ffmpeg"
 	ffprobeName := "ffprobe"
 	osKey := ""
-	
+
 	if runtime.GOOS == "windows" {
 		ffmpegName += ".exe"
 		ffprobeName += ".exe"
@@ -291,7 +303,7 @@ func ensureFFTools() (string, error) {
 	if err := downloadAndExtractZip(ffmpegURL, appDir, ffmpegName); err != nil {
 		return "", fmt.Errorf("ffmpeg download failed: %v", err)
 	}
-	if err:= downloadAndExtractZip(ffprobeURL, appDir, ffprobeName); err != nil {
+	if err := downloadAndExtractZip(ffprobeURL, appDir, ffprobeName); err != nil {
 		return "", fmt.Errorf("ffprobe download failed: %v", err)
 	}
 
@@ -321,13 +333,13 @@ func downloadAndExtractZip(url string, destDir string, targetBinary string) erro
 		return err
 	}
 	tmpFile.Close()
-	
+
 	r, err := zip.OpenReader(tmpFile.Name())
 	if err != nil {
 		return err
 	}
 	defer r.Close()
-	
+
 	for _, f := range r.File {
 		baseName := filepath.Base(f.Name)
 		cleanBase := strings.TrimSuffix(baseName, ".exe")
@@ -338,14 +350,14 @@ func downloadAndExtractZip(url string, destDir string, targetBinary string) erro
 			if err != nil {
 				return err
 			}
-			
+
 			destPath := filepath.Join(destDir, targetBinary)
 			out, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 			if err != nil {
 				rc.Close()
 				return err
 			}
-			
+
 			_, copyErr := io.Copy(out, rc)
 			out.Close()
 			rc.Close()

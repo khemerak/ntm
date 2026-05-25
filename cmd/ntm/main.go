@@ -17,7 +17,7 @@ var (
 	force     bool
 )
 
-const Version = "v0.0.2"
+const Version = "dev"
 
 var rootCmd = &cobra.Command{
 	Use:     "ntm [url]",
@@ -83,6 +83,14 @@ var rootCmd = &cobra.Command{
 		}
 
 		fmt.Println("\n  \033[32m[\033[0m ✓ \033[32m]\033[0m Download completed successfully.\n")
+	},
+}
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print the version number of ntm",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("ntm %s", Version)
 	},
 }
 

@@ -11,8 +11,9 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"bufio"
 	"github.com/spf13/cobra"
-	//"strings"
+	"strings"
 )
 
 var updateCmd = &cobra.Command{
@@ -44,6 +45,21 @@ var updateCmd = &cobra.Command{
 		}
 
 		fmt.Printf("  \033[33m[\033[0m * \033[33m]\033[0m New version found: %s (Current: %s)\n", release.TagName, Version)
+
+		fmt.Printf("  \033[36m[\033[0m ? \033[36m]\033[0m Do you want to install the update? [Y/n]:")
+		reader := bufio.NewReader(os.Stdin)
+		response, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("\n  \033[31m[\033[0m ! \033[31m]\033[0m Failed to read input: %v\n", err)
+			return
+		}
+
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response != "" && response != "y" && response != "yes" {
+			fmt.Println("  \033[36m[\033[0m i \033[36m]\033[0m Update cancelled. Keeping current version.")
+			return
+		}
+
 		goos := runtime.GOOS
 		goarch := runtime.GOARCH
 		if goarch == "amd64" {

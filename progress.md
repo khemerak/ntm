@@ -144,6 +144,15 @@ The original screenshot URL now reports the real upstream problem (in this
 environment the video itself is unavailable), instead of a misleading
 "requested format is not available" error.
 
+## Deployment Note
+
+`install.ps1` / `install.sh` download the asset from the **latest GitHub
+Release**, not from the `main` branch. Merging or pushing a fix to `main` does
+not update what users install. A new release must be tagged (`v*`) so the
+release workflow rebuilds and uploads the binaries.
+
+`v0.0.5` is the release that contains these fixes.
+
 ## Known Limitations / Follow-ups
 
 - `macos-arm64` still downloads the x86_64 ffmpeg build; Rosetta 2 is required.

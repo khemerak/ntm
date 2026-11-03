@@ -163,6 +163,8 @@ Changes:
   `--fragment-retries 10`, `--extractor-retries 3`, `--socket-timeout 30`.
 - Added authentication failures detection and an actionable hint showing the
   exact retry command.
+- Added detection for browser cookie database read failures (DPAPI / Chrome
+  database lock) with a `cookies.txt` fallback hint.
 - Validates that a `--cookies` path exists before starting yt-dlp.
 - Moved the download arguments into a `DownloadOptions` struct.
 - Added `isAuthError` unit coverage.
@@ -184,7 +186,8 @@ Release**, not from the `main` branch. Merging or pushing a fix to `main` does
 not update what users install. A new release must be tagged (`v*`) so the
 release workflow rebuilds and uploads the binaries.
 
-`v0.0.6` is the release that contains the authentication support.
+`v0.0.7` is the release that contains the authentication support and cookie
+read fallback guidance.
 
 ## Known Limitations / Follow-ups
 

@@ -1,6 +1,6 @@
 # ntm - Media Downloader
 
-## V0.0.6
+## V0.0.7
 
 `ntm` is a lightning-fast, zero-friction CLI media downloader written in **`Go`**. It acts as a smart wrapper around `yt-dlp`, but removes the headache of managing Python dependencies, keeping binaries updated, or struggling with slow single-threaded download speeds. `ntm` is now multi-platform support.
 

@@ -295,6 +295,8 @@ func (e *YTDLPExtractor) Download(url string, opts DownloadOptions) error {
 		if lastError != "" {
 			if isAuthError(lastError) {
 				printAuthHint(url, opts)
+			} else if isCookieReadError(lastError) {
+				printCookieReadHint(url)
 			}
 			return fmt.Errorf("%s", lastError)
 		}
@@ -315,6 +317,16 @@ func isAuthError(message string) bool {
 		strings.Contains(lower, "too many requests")
 }
 
+// isCookieReadError reports whether yt-dlp could not read the browser's cookie
+// database (for example Chrome/Edge app-bound encryption on Windows).
+func isCookieReadError(message string) bool {
+	lower := strings.ToLower(message)
+	return strings.Contains(lower, "failed to decrypt with dpapi") ||
+		strings.Contains(lower, "could not copy chrome cookie database") ||
+		strings.Contains(lower, "could not find cookies") ||
+		strings.Contains(lower, "cookie database")
+}
+
 func printAuthHint(url string, opts DownloadOptions) {
 	fmt.Println()
 	if opts.CookiesFromBrowser == "" && opts.CookiesFile == "" {
@@ -328,6 +340,13 @@ func printAuthHint(url string, opts DownloadOptions) {
 
 	fmt.Println("  \033[36m[\033[0m i \033[36m]\033[0m Cookies were supplied, but YouTube still rejected the request.")
 	fmt.Println("        Make sure the selected browser profile is signed in, or refresh cookies.txt.")
+}
+
+func printCookieReadHint(url string) {
+	fmt.Println()
+	fmt.Println("  \033[36m[\033[0m i \033[36m]\033[0m Could not read the browser cookie database (common with recent Chrome/Edge on Windows).")
+	fmt.Println("        Export a Netscape-format cookies.txt with a browser extension, then retry:")
+	fmt.Printf("          ntm %q --cookies C:\\path\\to\\cookies.txt\n", url)
 }
 
 func ensureYTDLP() (string, error) {

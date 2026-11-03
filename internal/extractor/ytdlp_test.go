@@ -75,6 +75,23 @@ func TestIsAuthError(t *testing.T) {
 	}
 }
 
+func TestCookieReadError(t *testing.T) {
+	tests := []struct {
+		message string
+		want    bool
+	}{
+		{"ERROR: Failed to decrypt with DPAPI", true},
+		{"ERROR: Could not copy Chrome cookie database", true},
+		{"requested format is not available", false},
+	}
+
+	for _, tt := range tests {
+		if got := isCookieReadError(tt.message); got != tt.want {
+			t.Errorf("isCookieReadError(%q) = %v, want %v", tt.message, got, tt.want)
+		}
+	}
+}
+
 func TestFFBinariesPlatformKey(t *testing.T) {
 	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
 		t.Skip("unsupported test platform")

@@ -2,12 +2,15 @@
 
 ## Current Status
 
-**Working.** The reported download failure is fixed, the project builds
-cleanly, `go vet` passes, and the unit tests pass. Real downloads were verified
-against YouTube:
+**Working.** The reported format/download failure is fixed, `v0.0.6` adds
+cookie/authentication support for YouTube bot checks and rate limits, the project
+builds cleanly, `go vet` passes, and the unit tests pass. Real downloads were
+verified against YouTube:
 
 - video: 144p download, stream merge, and output file written
 - audio: M4A extraction written successfully
+- authentication: `--cookies` forwarding, missing-file validation, and bot-check
+  hint verified
 
 Last updated: 2026-11-03
 
@@ -144,6 +147,36 @@ The original screenshot URL now reports the real upstream problem (in this
 environment the video itself is unavailable), instead of a misleading
 "requested format is not available" error.
 
+## Authentication Support (v0.0.6)
+
+A long video failed with `HTTP Error 429: Too Many Requests` followed by
+"Sign in to confirm you're not a bot". The length of the video was unrelated:
+YouTube was requiring an authenticated session.
+
+Changes:
+
+- Added `--cookies-from-browser <browser>` for `chrome`, `edge`, `firefox`,
+  `brave`, and other yt-dlp-supported browsers.
+- Added `--cookies <cookies.txt>` for an exported Netscape cookie file.
+- Added `--impersonate <client[:os]>` passthrough.
+- Added download resiliency defaults: `--retries 10`,
+  `--fragment-retries 10`, `--extractor-retries 3`, `--socket-timeout 30`.
+- Added authentication failures detection and an actionable hint showing the
+  exact retry command.
+- Validates that a `--cookies` path exists before starting yt-dlp.
+- Moved the download arguments into a `DownloadOptions` struct.
+- Added `isAuthError` unit coverage.
+
+Verified:
+
+- `--cookies` flag is forwarded to yt-dlp (empty cookie jar still downloads a
+  normal video successfully).
+- Missing cookie path fails with a clear error.
+- Bot-check failure prints the cookie/authentication hint.
+- `--cookies-from-browser edge` is forwarded, although this machine's Edge
+  cookie database uses app-bound encryption that yt-dlp cannot decrypt; in that
+  case the documented `cookies.txt` export is required.
+
 ## Deployment Note
 
 `install.ps1` / `install.sh` download the asset from the **latest GitHub
@@ -151,7 +184,7 @@ Release**, not from the `main` branch. Merging or pushing a fix to `main` does
 not update what users install. A new release must be tagged (`v*`) so the
 release workflow rebuilds and uploads the binaries.
 
-`v0.0.5` is the release that contains these fixes.
+`v0.0.6` is the release that contains the authentication support.
 
 ## Known Limitations / Follow-ups
 

@@ -133,8 +133,8 @@ func detectJSRuntimes() []string {
 	return runtimes
 }
 
-func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, quality string, force bool) error {
-	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+func (e *YTDLPExtractor) Download(url string, opts DownloadOptions) error {
+	if err := os.MkdirAll(opts.OutputDir, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create output directory: %v", err)
 	}
 
@@ -142,8 +142,12 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 		"--newline",
 		"--no-playlist",
 		"--restrict-filenames",
+		"--retries", "10",
+		"--fragment-retries", "10",
+		"--extractor-retries", "3",
+		"--socket-timeout", "30",
 		"-N", "4",
-		"-o", filepath.Join(outputDir, "%(title)s.%(ext)s"),
+		"-o", filepath.Join(opts.OutputDir, "%(title)s.%(ext)s"),
 	}
 
 	// Only enable runtimes that actually exist. Forcing a missing runtime (for
@@ -156,21 +160,38 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 		fmt.Println("  \033[33m[\033[0m ! \033[33m]\033[0m WARNING: No JavaScript runtime (deno/node/bun) found. Some YouTube formats may be unavailable.")
 	}
 
+	if opts.CookiesFromBrowser != "" {
+		args = append(args, "--cookies-from-browser", opts.CookiesFromBrowser)
+	}
+	if opts.CookiesFile != "" {
+		info, err := os.Stat(opts.CookiesFile)
+		if err != nil {
+			return fmt.Errorf("cookies file not found: %v", err)
+		}
+		if info.IsDir() {
+			return fmt.Errorf("cookies path is a directory, expected a file: %s", opts.CookiesFile)
+		}
+		args = append(args, "--cookies", opts.CookiesFile)
+	}
+	if opts.Impersonate != "" {
+		args = append(args, "--impersonate", opts.Impersonate)
+	}
+
 	hasFFmpeg := e.ffmpegBinDir != ""
 	if hasFFmpeg {
 		args = append(args, "--ffmpeg-location", e.ffmpegBinDir)
 	}
-	if force {
+	if opts.Force {
 		args = append(args, "--force-overwrites")
 	}
 
-	if audioOnly {
+	if opts.AudioOnly {
 		args = append(args, "-f", "bestaudio/best")
 		if hasFFmpeg {
 			args = append(args, "-x", "--audio-format", "m4a", "--audio-quality", "0")
 		}
 	} else {
-		args = append(args, "-f", buildFormatSelector(quality, hasFFmpeg))
+		args = append(args, "-f", buildFormatSelector(opts.Quality, hasFFmpeg))
 	}
 
 	args = append(args, url)
@@ -272,12 +293,41 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 	fmt.Println()
 	if err := <-errCh; err != nil {
 		if lastError != "" {
+			if isAuthError(lastError) {
+				printAuthHint(url, opts)
+			}
 			return fmt.Errorf("%s", lastError)
 		}
 		return fmt.Errorf("yt-dlp failed: %v", err)
 	}
 
 	return nil
+}
+
+// isAuthError reports whether yt-dlp was blocked by YouTube's login/bot check
+// or rate limiting rather than by an invalid format or a missing video.
+func isAuthError(message string) bool {
+	lower := strings.ToLower(message)
+	return strings.Contains(lower, "sign in to confirm") ||
+		strings.Contains(lower, "not a bot") ||
+		strings.Contains(lower, "use --cookies") ||
+		strings.Contains(lower, "http error 429") ||
+		strings.Contains(lower, "too many requests")
+}
+
+func printAuthHint(url string, opts DownloadOptions) {
+	fmt.Println()
+	if opts.CookiesFromBrowser == "" && opts.CookiesFile == "" {
+		fmt.Println("  \033[36m[\033[0m i \033[36m]\033[0m YouTube is asking for authentication (bot check / rate limit).")
+		fmt.Println("        Use cookies from a browser where you are signed in to YouTube:")
+		fmt.Printf("          ntm %q --cookies-from-browser edge\n", url)
+		fmt.Println("        Or export cookies.txt and use:")
+		fmt.Printf("          ntm %q --cookies C:\\path\\to\\cookies.txt\n", url)
+		return
+	}
+
+	fmt.Println("  \033[36m[\033[0m i \033[36m]\033[0m Cookies were supplied, but YouTube still rejected the request.")
+	fmt.Println("        Make sure the selected browser profile is signed in, or refresh cookies.txt.")
 }
 
 func ensureYTDLP() (string, error) {

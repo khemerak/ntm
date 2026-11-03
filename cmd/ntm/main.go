@@ -12,10 +12,13 @@ import (
 )
 
 var (
-	outputDir string
-	audioOnly bool
-	quality   string
-	force     bool
+	outputDir          string
+	audioOnly          bool
+	quality            string
+	force              bool
+	cookiesFromBrowser string
+	cookiesFile        string
+	impersonate        string
 )
 
 var Version = "dev"
@@ -56,7 +59,15 @@ var rootCmd = &cobra.Command{
 
 		fmt.Println("  \033[33m[\033[0m * \033[33m]\033[0m Connecting to stream...")
 
-		err = ext.Download(targetURL, outputDir, audioOnly, quality, force)
+		err = ext.Download(targetURL, extractor.DownloadOptions{
+			OutputDir:          outputDir,
+			AudioOnly:          audioOnly,
+			Quality:            quality,
+			Force:              force,
+			CookiesFromBrowser: cookiesFromBrowser,
+			CookiesFile:        cookiesFile,
+			Impersonate:        impersonate,
+		})
 		if err != nil {
 			fmt.Printf("  \033[31m[\033[0m ! \033[31m]\033[0m Download failed: %v\n", err)
 			os.Exit(1)
@@ -111,6 +122,9 @@ func main() {
 	rootCmd.Flags().BoolVarP(&audioOnly, "audio", "a", false, "Extract audio only (M4A)")
 	rootCmd.Flags().StringVarP(&quality, "quality", "q", "1080p", "Video quality: best, 1080p, 720p, or any height")
 	rootCmd.Flags().BoolVarP(&force, "force", "f", false, "Force overwrite if the file exists")
+	rootCmd.Flags().StringVar(&cookiesFromBrowser, "cookies-from-browser", "", "Load cookies from a browser (chrome, edge, firefox, brave, ...)")
+	rootCmd.Flags().StringVar(&cookiesFile, "cookies", "", "Path to a Netscape-format cookies.txt file")
+	rootCmd.Flags().StringVar(&impersonate, "impersonate", "", "Impersonate a browser/client (for example: chrome, firefox)")
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(versionCmd)
 

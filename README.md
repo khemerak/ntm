@@ -1,6 +1,6 @@
 # ntm - Media Downloader
 
-## V0.0.5
+## V0.0.6
 
 `ntm` is a lightning-fast, zero-friction CLI media downloader written in **`Go`**. It acts as a smart wrapper around `yt-dlp`, but removes the headache of managing Python dependencies, keeping binaries updated, or struggling with slow single-threaded download speeds. `ntm` is now multi-platform support.
 
@@ -108,6 +108,36 @@ ntm "https://youtu.be/example" -a -o ~/Music
 ntm "https://youtu.be/example" -f
 
 ```
+
+## Authenticated / Age-Restricted Videos
+
+Some videos require a signed-in YouTube session. Typical symptoms are:
+
+```text
+HTTP Error 429: Too Many Requests
+Sign in to confirm you're not a bot
+```
+
+Pass cookies from a browser where you are signed in:
+
+```bash
+ntm "https://youtu.be/example" --cookies-from-browser edge
+# also: chrome, firefox, brave
+```
+
+If yt-dlp cannot read the browser cookie database (common with recent
+Chrome/Edge versions on Windows), export a Netscape-format `cookies.txt` with a
+browser extension and pass the file explicitly:
+
+```bash
+ntm "https://youtu.be/example" --cookies /path/to/cookies.txt
+```
+
+`--impersonate chrome` can also help with some rate-limiting cases.
+
+Long videos (including 1-hour downloads) are supported. Interrupted downloads
+resume automatically on the next run.
+
 ## Version
 
 To see the current running version of ntm, simply run: 

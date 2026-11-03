@@ -57,6 +57,24 @@ func TestCanHandle(t *testing.T) {
 	}
 }
 
+func TestIsAuthError(t *testing.T) {
+	tests := []struct {
+		message string
+		want    bool
+	}{
+		{"Sign in to confirm you're not a bot", true},
+		{"HTTP Error 429: Too Many Requests", true},
+		{"requested format is not available", false},
+		{"This video is unavailable", false},
+	}
+
+	for _, tt := range tests {
+		if got := isAuthError(tt.message); got != tt.want {
+			t.Errorf("isAuthError(%q) = %v, want %v", tt.message, got, tt.want)
+		}
+	}
+}
+
 func TestFFBinariesPlatformKey(t *testing.T) {
 	if runtime.GOOS != "windows" && runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
 		t.Skip("unsupported test platform")

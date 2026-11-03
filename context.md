@@ -115,6 +115,25 @@ Audio mode uses `bestaudio/best` and, when ffmpeg is available,
 `-x --audio-format m4a --audio-quality 0`, matching the CLI's "Audio Only (M4A)"
 label.
 
+### Authentication and rate limiting
+
+YouTube may answer with `HTTP 429` or "Sign in to confirm you're not a bot".
+This is an authentication problem, not a format or video-length problem. `ntm`
+exposes yt-dlp's authentication options through `DownloadOptions`:
+
+- `--cookies-from-browser <browser>`
+- `--cookies <cookies.txt>`
+- `--impersonate <client[:os]>`
+
+When the download fails with an authentication error, `Download()` prints a
+hint showing the exact retry command. Browser cookie extraction can fail on
+recent Chrome/Edge builds because of app-bound cookie encryption; the reliable
+fallback is a Netscape-format `cookies.txt` exported from the browser.
+
+Downloads also pass `--retries 10`, `--fragment-retries 10`,
+`--extractor-retries 3`, and `--socket-timeout 30` so long or flaky downloads
+recover instead of failing immediately. yt-dlp resumes partial files by default.
+
 ## Build, Test, Release
 
 ```bash

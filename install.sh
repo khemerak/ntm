@@ -22,13 +22,19 @@ DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/$BINARY_NAM
 
 echo "Downloading ntm $LATEST_TAG for $OS-$ARCH..."
 
-curl -sL "$DOWNLOAD_URL" -o /tmp/ntm
+TMP_BINARY="$(mktemp /tmp/ntm.XXXXXX)"
+trap 'rm -f "$TMP_BINARY"' EXIT
 
-chmod +x /tmp/ntm
+if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_BINARY"; then
+  echo "Error: Failed to download $DOWNLOAD_URL"
+  exit 1
+fi
+
+chmod +x "$TMP_BINARY"
 
 echo "Installing to /usr/local/bin (administrator password is required)..."
 
-sudo mv /tmp/ntm /usr/local/bin/ntm
+sudo mv "$TMP_BINARY" /usr/local/bin/ntm
 
 echo "✓ ntm installed successfully!"
 echo "Please run: ntm --help to see more"

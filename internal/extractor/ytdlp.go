@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +16,12 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
+)
+
+const (
+	minYTDLPSize  = 10 * 1024 * 1024
+	minFFmpegSize = 5 * 1024 * 1024
 )
 
 type YTDLPExtractor struct {
@@ -40,7 +47,7 @@ func NewYTDLPExtractor() (*YTDLPExtractor, error) {
 
 }
 
-func (e *YTDLPExtractor) CanHandle(url string) bool {
+func (e *YTDLPExtractor) CanHandle(rawURL string) bool {
 	supportedDomains := []string{
 		"youtube.com", "youtu.be",
 		"tiktok.com",
@@ -48,9 +55,15 @@ func (e *YTDLPExtractor) CanHandle(url string) bool {
 		"facebook.com", "fb.watch",
 		"instagram.com",
 	}
-	lowerURL := strings.ToLower(url)
+
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+
+	host := strings.TrimPrefix(strings.ToLower(parsed.Hostname()), "www.")
 	for _, domain := range supportedDomains {
-		if strings.Contains(lowerURL, domain) {
+		if host == domain || strings.HasSuffix(host, "."+domain) {
 			return true
 		}
 	}
@@ -65,15 +78,15 @@ func (e *YTDLPExtractor) ExtractMetadata(url string) (*Metadata, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("Failed to extract metadata %s", stderr.String())
+		return nil, fmt.Errorf("failed to extract metadata: %s", strings.TrimSpace(stderr.String()))
 	}
 
 	var rawData struct {
-		Title    string `json:title`
-		Duration int    `json:duration`
+		Title    string `json:"title"`
+		Duration int    `json:"duration"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &rawData); err != nil {
-		return nil, fmt.Errorf("failed to pharse JSON metadata %v", err)
+		return nil, fmt.Errorf("failed to parse JSON metadata: %v", err)
 	}
 
 	return &Metadata{
@@ -83,24 +96,68 @@ func (e *YTDLPExtractor) ExtractMetadata(url string) (*Metadata, error) {
 	}, nil
 }
 
+// buildFormatSelector picks a yt-dlp format expression for the requested quality.
+// Separate video/audio streams can only be merged when ffmpeg is available, so
+// without ffmpeg we fall back to pre-muxed formats.
+func buildFormatSelector(quality string, hasFFmpeg bool) string {
+	height := 0
+	if quality != "best" {
+		if n, err := strconv.Atoi(strings.TrimSuffix(strings.ToLower(strings.TrimSpace(quality)), "p")); err == nil && n > 0 {
+			height = n
+		}
+	}
+
+	if height == 0 {
+		if hasFFmpeg {
+			return "bv*+ba/b"
+		}
+		return "b"
+	}
+
+	if hasFFmpeg {
+		return fmt.Sprintf("bv*[height<=%d]+ba/b[height<=%d]/b", height, height)
+	}
+	return fmt.Sprintf("b[height<=%d]/b", height)
+}
+
+// detectJSRuntimes returns the JavaScript runtimes that yt-dlp can use to solve
+// YouTube challenges. Only deno is enabled by default, so node/bun must be
+// explicitly enabled when they are the runtimes installed on the machine.
+func detectJSRuntimes() []string {
+	var runtimes []string
+	for _, name := range []string{"deno", "node", "bun"} {
+		if _, err := exec.LookPath(name); err == nil {
+			runtimes = append(runtimes, name)
+		}
+	}
+	return runtimes
+}
+
 func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, quality string, force bool) error {
 	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create output directory %v", err)
+		return fmt.Errorf("failed to create output directory: %v", err)
 	}
 
 	args := []string{
 		"--newline",
-		"--js-runtimes", "node",
 		"--no-playlist",
 		"--restrict-filenames",
-		//"--no-warnings",
-		"-4",
-		"--extractor-args", "youtube:player_client=web",
 		"-N", "4",
-		"-o", fmt.Sprintf("%s/%%(title)s.%%(ext)s", outputDir),
+		"-o", filepath.Join(outputDir, "%(title)s.%(ext)s"),
 	}
 
-	if e.ffmpegBinDir != "" {
+	// Only enable runtimes that actually exist. Forcing a missing runtime (for
+	// example "node") leaves yt-dlp unable to solve YouTube challenges.
+	jsRuntimes := detectJSRuntimes()
+	for _, runtimeName := range jsRuntimes {
+		args = append(args, "--js-runtimes", runtimeName)
+	}
+	if len(jsRuntimes) == 0 && strings.Contains(strings.ToLower(url), "youtube") {
+		fmt.Println("  \033[33m[\033[0m ! \033[33m]\033[0m WARNING: No JavaScript runtime (deno/node/bun) found. Some YouTube formats may be unavailable.")
+	}
+
+	hasFFmpeg := e.ffmpegBinDir != ""
+	if hasFFmpeg {
 		args = append(args, "--ffmpeg-location", e.ffmpegBinDir)
 	}
 	if force {
@@ -108,15 +165,12 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 	}
 
 	if audioOnly {
-		args = append(args, "-f", "bestaudio/best", "-x") //, "--audio-format", "m4a", "--audio-quality", "0")
-	} else {
-		formatStr := "bestvideo+bestaudio/best"
-		if quality == "1080p" {
-			formatStr = "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best"
-		} else if quality == "720p" {
-			formatStr = "bestvideo[height<=720]+bestaudio/best[height<=720]/best"
+		args = append(args, "-f", "bestaudio/best")
+		if hasFFmpeg {
+			args = append(args, "-x", "--audio-format", "m4a", "--audio-quality", "0")
 		}
-		args = append(args, "-f", formatStr)
+	} else {
+		args = append(args, "-f", buildFormatSelector(quality, hasFFmpeg))
 	}
 
 	args = append(args, url)
@@ -128,6 +182,8 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 	cmd.Stderr = writer
 
 	if err := cmd.Start(); err != nil {
+		writer.Close()
+		reader.Close()
 		return fmt.Errorf("failed to start download: %v", err)
 	}
 	errCh := make(chan error, 1)
@@ -137,7 +193,9 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 	}()
 
 	progressRe := regexp.MustCompile(`\[download\]\s+(~?\s*[0-9\.]+)%`)
+	formatIDRe := regexp.MustCompile(`\.f[0-9]+$`)
 	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
 
 	spinner := []string{"|", "/", "-", "\\"}
 	spinnerIndex := 0
@@ -145,6 +203,7 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 	var isExtracting bool
 	var isMerging bool
 	var hasPrintedMetadata bool
+	var lastError string
 
 	barWidth := 40
 	fmt.Println()
@@ -157,6 +216,7 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 			filename := filepath.Base(fullPath)
 			ext := filepath.Ext(filename)
 			cleanTitle := strings.TrimSuffix(filename, ext)
+			cleanTitle = formatIDRe.ReplaceAllString(cleanTitle, "")
 
 			fmt.Printf("\r\033[K  \033[32m[\033[0m * \033[32m]\033[0m Found   : %s\n", cleanTitle)
 			hasPrintedMetadata = true
@@ -180,6 +240,14 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 
 				fmt.Printf("\r\033[K  \033[36m[\033[0m %s \033[36m]\033[0m Downloading media \033[36m[%s]\033[0m %5s%%", s, bar, cleanPercent)
 			}
+		} else if strings.Contains(line, "ERROR:") {
+			idx := strings.Index(line, "ERROR:")
+			lastError = strings.TrimSpace(line[idx+len("ERROR:"):])
+			fmt.Printf("\r\033[K  \033[31m[\033[0m ERROR \033[31m]\033[0m %s\n", lastError)
+		} else if strings.Contains(line, "WARNING:") {
+			idx := strings.Index(line, "WARNING:")
+			warning := strings.TrimSpace(line[idx+len("WARNING:"):])
+			fmt.Printf("\r\033[K  \033[33m[\033[0m ! \033[33m]\033[0m WARNING: %s\n", warning)
 		} else if strings.Contains(line, "[ExtractAudio]") {
 			if !isExtracting {
 				fmt.Printf("\n  \033[33m[\033[0m * \033[33m]\033[0m Extracting audio track...")
@@ -192,18 +260,21 @@ func (e *YTDLPExtractor) Download(url string, outputDir string, audioOnly bool, 
 			}
 		} else if strings.Contains(line, "has already been downloaded") {
 			fmt.Printf("\n  \033[33m[\033[0m ! \033[33m]\033[0m File already exists. Pass --force to overwrite.")
-		} else if strings.Contains(strings.ToLower(line), "error:") {
-			parts := strings.SplitN(strings.ToLower(line), "error:", 2)
-			cleanErr := strings.TrimSpace(parts[len(parts)-1])
-			fmt.Printf("\r\033[K  \033[31m[\033[0m ERROR \033[31m]\033[0m %s\n", cleanErr)
-		} else if strings.Contains(line, "ERROR:") || strings.Contains(line, "WARNING:") {
-			fmt.Printf("\n  \033[31m[\033[0m ! \033[31m]\033[0m %s\n", line)
 		}
+	}
+
+	// If the scanner stopped early (for example on an oversized line), keep
+	// draining the pipe so the child process never blocks on a full buffer.
+	if err := scanner.Err(); err != nil {
+		_, _ = io.Copy(io.Discard, reader)
 	}
 
 	fmt.Println()
 	if err := <-errCh; err != nil {
-		return fmt.Errorf("process has crashed: %v", err)
+		if lastError != "" {
+			return fmt.Errorf("%s", lastError)
+		}
+		return fmt.Errorf("yt-dlp failed: %v", err)
 	}
 
 	return nil
@@ -231,25 +302,56 @@ func ensureYTDLP() (string, error) {
 
 	downloadURL := "https://github.com/yt-dlp/yt-dlp/releases/latest/download/" + downloadFilename
 	binPath := filepath.Join(appDir, binName)
-	info, err := os.Stat(binPath)
-	if err == nil && info.Size() > 10000000 {
+	if info, err := os.Stat(binPath); err == nil && info.Size() >= minYTDLPSize {
 		return binPath, nil
 	}
+
+	// Remove a missing/partial/corrupt binary so a retry starts cleanly.
+	_ = os.Remove(binPath)
+
 	fmt.Println("Downloading yt-dlp standalone binary (This is a one-time installation.)...")
 
-	resp, err := http.Get(downloadURL)
+	client := &http.Client{Timeout: 10 * time.Minute}
+	resp, err := client.Get(downloadURL)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
-	out, err := os.OpenFile(binPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("bad HTTP status while downloading yt-dlp: %s", resp.Status)
+	}
+
+	tmpFile, err := os.CreateTemp(appDir, "yt-dlp-download-*")
 	if err != nil {
 		return "", err
 	}
-	defer out.Close()
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
 
-	if _, err := io.Copy(out, resp.Body); err != nil {
+	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
+		tmpFile.Close()
+		return "", err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return "", err
+	}
+
+	info, err := os.Stat(tmpPath)
+	if err != nil {
+		return "", err
+	}
+	if info.Size() < minYTDLPSize {
+		return "", fmt.Errorf("downloaded yt-dlp binary is unexpectedly small (%d bytes)", info.Size())
+	}
+
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(tmpPath, 0755); err != nil {
+			return "", err
+		}
+	}
+
+	if err := os.Rename(tmpPath, binPath); err != nil {
 		return "", err
 	}
 
@@ -273,16 +375,14 @@ func ensureFFTools() (string, error) {
 
 	ffmpegName := "ffmpeg"
 	ffprobeName := "ffprobe"
-	osKey := ""
-
 	if runtime.GOOS == "windows" {
 		ffmpegName += ".exe"
 		ffprobeName += ".exe"
-		osKey = "win-64"
-	} else if runtime.GOOS == "darwin" {
-		osKey = "macos-64"
-	} else {
-		osKey = "linux-64"
+	}
+
+	osKey, err := ffbinariesPlatformKey()
+	if err != nil {
+		return "", err
 	}
 
 	ffmpegPath := filepath.Join(appDir, ffmpegName)
@@ -290,7 +390,7 @@ func ensureFFTools() (string, error) {
 
 	fi, err1 := os.Stat(ffmpegPath)
 	pi, err2 := os.Stat(ffprobePath)
-	if err1 == nil && err2 == nil && fi.Size() > 5000000 && pi.Size() > 5000000 {
+	if err1 == nil && err2 == nil && fi.Size() >= minFFmpegSize && pi.Size() >= minFFmpegSize {
 		return appDir, nil
 	}
 
@@ -307,7 +407,47 @@ func ensureFFTools() (string, error) {
 		return "", fmt.Errorf("ffprobe download failed: %v", err)
 	}
 
+	for _, path := range []string{ffmpegPath, ffprobePath} {
+		info, err := os.Stat(path)
+		if err != nil {
+			return "", err
+		}
+		if info.Size() < minFFmpegSize {
+			return "", fmt.Errorf("downloaded %s is unexpectedly small (%d bytes)", filepath.Base(path), info.Size())
+		}
+	}
+
 	return appDir, nil
+}
+
+// ffbinariesPlatformKey maps the current Go platform to the artifact naming
+// used by the ffbinaries-prebuilt releases.
+func ffbinariesPlatformKey() (string, error) {
+	switch runtime.GOOS {
+	case "windows":
+		// Only 64-bit builds are published. ARM64 Windows can run the x64
+		// build through emulation.
+		if runtime.GOARCH == "amd64" || runtime.GOARCH == "arm64" {
+			return "win-64", nil
+		}
+	case "darwin":
+		// ffbinaries only publishes an x86_64 macOS build; Apple Silicon runs
+		// it through Rosetta 2.
+		return "macos-64", nil
+	case "linux":
+		switch runtime.GOARCH {
+		case "amd64":
+			return "linux-64", nil
+		case "arm64":
+			return "linux-arm-64", nil
+		case "arm":
+			return "linux-armhf-32", nil
+		case "386":
+			return "linux-32", nil
+		}
+	}
+
+	return "", fmt.Errorf("unsupported platform for FFmpeg bootstrap: %s/%s", runtime.GOOS, runtime.GOARCH)
 }
 
 func downloadAndExtractZip(url string, destDir string, targetBinary string) error {
@@ -317,7 +457,7 @@ func downloadAndExtractZip(url string, destDir string, targetBinary string) erro
 	}
 	defer os.Remove(tmpFile.Name())
 
-	resp, err := http.Get(url)
+	resp, err := (&http.Client{Timeout: 15 * time.Minute}).Get(url)
 	if err != nil {
 		tmpFile.Close()
 		return err

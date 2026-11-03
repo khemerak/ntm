@@ -13,10 +13,15 @@ if (-not $LatestTag) {
     exit 1
 }
 
-if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") {
+if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64" -or $env:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
+    $Arch = "amd64"
+} elseif ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
+    # The release pipeline only publishes ntm-windows-amd64.exe.
+    # Windows on ARM runs it through x64 emulation.
     $Arch = "amd64"
 } else {
-    $Arch = "arm64"
+    Write-Host "Error: Unsupported Windows architecture: $env:PROCESSOR_ARCHITECTURE" -ForegroundColor Red
+    exit 1
 }
 
 $BinaryName = "ntm-windows-${Arch}.exe"

@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"ntm/internal/extractor"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
-	//"net/url"
+
+	"github.com/spf13/cobra"
+	"ntm/internal/extractor"
 )
 
 var (
@@ -25,34 +26,13 @@ var rootCmd = &cobra.Command{
 	Version: Version,
 	Args:    cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		targetURL := args[0]
-
-		//		parsedURL, err := url.Parse(targetURL)
-		//		if err != nil {
-		//			q := parsedURL.Query()
-		//			q.Del("list")
-		//			q.Del("start_radio")
-		//			q.Del("rv")
-		//			q.Del("index")
-		//			parsedURL.RawQuery = q.Encode()
-		//			targetURL = parsedURL.String()
-		//		}
-
-		if idx := strings.Index(targetURL, "&list="); idx != -1 {
-			targetURL = targetURL[:idx]
-		}
-		if idx := strings.Index(targetURL, "?list="); idx != -1 {
-			targetURL = targetURL[:idx]
-		}
-		if idx := strings.Index(targetURL, "&start_radio="); idx != -1 {
-			targetURL = targetURL[:idx]
-		}
+		targetURL := sanitizeURL(args[0])
 
 		fmt.Println("\n  \033[36m┌──────────────────────────────────────────┐\033[0m")
 		fmt.Println("  \033[36m│\033[0m                                          \033[36m│\033[0m")
 		fmt.Println("  \033[36m│\033[0m          \033[1mNTM : MEDIA DOWNLOADER   \033[0m       \033[36m│\033[0m")
 		fmt.Println("  \033[36m│\033[0m                                          \033[36m│\033[0m")
-		fmt.Println("  \033[36m└──────────────────────────────────────────┘\033[0m\n")
+		fmt.Printf("  \033[36m└──────────────────────────────────────────┘\033[0m\n\n")
 
 		fmt.Printf("  \033[36m[\033[0m i \033[36m]\033[0m Target  : %s\n", targetURL)
 		fmt.Printf("  \033[36m[\033[0m i \033[36m]\033[0m Output  : %s\n", outputDir)
@@ -82,15 +62,40 @@ var rootCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Println("\n  \033[32m[\033[0m ✓ \033[32m]\033[0m Download completed successfully.\n")
+		fmt.Printf("\n  \033[32m[\033[0m ✓ \033[32m]\033[0m Download completed successfully.\n\n")
 	},
+}
+
+// sanitizeURL removes playlist and tracking parameters so a single video is
+// downloaded instead of an entire playlist or radio mix.
+func sanitizeURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return raw
+	}
+	if !strings.Contains(raw, "://") {
+		raw = "https://" + raw
+	}
+
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+
+	query := parsed.Query()
+	for _, key := range []string{"list", "index", "start_radio", "rv", "si", "pp"} {
+		query.Del(key)
+	}
+	parsed.RawQuery = query.Encode()
+
+	return parsed.String()
 }
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version number of ntm",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("ntm %s", Version)
+		fmt.Printf("ntm %s\n", Version)
 	},
 }
 
@@ -103,9 +108,9 @@ func main() {
 	defaultDownloadPath := filepath.Join(home, "Downloads")
 
 	rootCmd.Flags().StringVarP(&outputDir, "output", "o", defaultDownloadPath, "Directory to save the downloaded media")
-	rootCmd.Flags().BoolVarP(&audioOnly, "audio", "a", false, "Extract audio only (mp3)")
-	rootCmd.Flags().StringVarP(&quality, "quality", "q", "1080p", "Video quality: best, 1080p, 720p")
-	rootCmd.Flags().BoolVarP(&force, "force", "f", false, "Force overwrite of file exists")
+	rootCmd.Flags().BoolVarP(&audioOnly, "audio", "a", false, "Extract audio only (M4A)")
+	rootCmd.Flags().StringVarP(&quality, "quality", "q", "1080p", "Video quality: best, 1080p, 720p, or any height")
+	rootCmd.Flags().BoolVarP(&force, "force", "f", false, "Force overwrite if the file exists")
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(versionCmd)
 

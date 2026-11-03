@@ -80,7 +80,7 @@ ntm "https://youtu.be/example"
 
 ```
 
-**Extract Audio Only (MP3):**
+**Extract Audio Only (M4A):**
 
 ```bash
 ntm "https://youtu.be/example" -a
@@ -90,7 +90,7 @@ ntm "https://youtu.be/example" -a
 **Change Video Quality:**
 
 ```bash
-# Options: 1080p (default), 720p, best
+# Options: best, 1080p (default), 720p, or any height such as 480p
 ntm "https://youtu.be/example" -q 720p
 
 ```
@@ -134,4 +134,10 @@ go build -ldflags="-s -w" -o ntm ./cmd/ntm
 sudo mv ntm /usr/local/bin/
 
 ```
+
+## Project Docs
+
+- [`context.md`](./context.md) - architecture, components, and design decisions
+- [`progress.md`](./progress.md) - current status, recent fixes, and known limitations
+
 

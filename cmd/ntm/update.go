@@ -26,10 +26,15 @@ var updateCmd = &cobra.Command{
 
 		resp, err := http.Get(apiURL)
 		if err != nil {
-			fmt.Printf("  \033[31m[\033[0m ! \033[31m]\033[0m Failed to connectto GitHub: %v\n", err)
+			fmt.Printf("  \033[31m[\033[0m ! \033[31m]\033[0m Failed to connect to GitHub: %v\n", err)
 			return
 		}
 		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			fmt.Printf("  \033[31m[\033[0m ! \033[31m]\033[0m GitHub returned: %s\n", resp.Status)
+			return
+		}
 
 		var release struct {
 			TagName string `json:"tag_name"`
@@ -62,10 +67,10 @@ var updateCmd = &cobra.Command{
 
 		goos := runtime.GOOS
 		goarch := runtime.GOARCH
-		if goarch == "amd64" {
-
-		} else if goarch == "arm64" {
-
+		// The release pipeline only publishes a 64-bit x86 Windows build;
+		// ARM64 Windows runs it through emulation.
+		if goos == "windows" && goarch == "arm64" {
+			goarch = "amd64"
 		}
 
 		binaryName := fmt.Sprintf("ntm-%s-%s", goos, goarch)
@@ -114,7 +119,7 @@ func executeUpdate(downloadURL string) error {
 	dir := filepath.Dir(exePath)
 	tmpFile, err := os.CreateTemp(dir, "ntm-update-*")
 	if err != nil {
-		return fmt.Errorf("Could not create temo file (do you need sudo?): %v", err)
+		return fmt.Errorf("could not create temporary file (do you need sudo?): %v", err)
 	}
 
 	tmpPath := tmpFile.Name()
@@ -143,11 +148,21 @@ func executeUpdate(downloadURL string) error {
 		}
 	}
 	if runtime.GOOS == "windows" {
-		oldPath := exePath + "old"
-		os.Remove(oldPath)
+		oldPath := exePath + ".old"
+		_ = os.Remove(oldPath)
 		if err := os.Rename(exePath, oldPath); err != nil {
-			return fmt.Errorf("failed to mvoe running executable: %v", err)
+			return fmt.Errorf("failed to move running executable: %v", err)
 		}
+		if err := os.Rename(tmpPath, exePath); err != nil {
+			// Put the original binary back if the replacement failed.
+			_ = os.Rename(oldPath, exePath)
+			return err
+		}
+		// This may fail while the old image is still in use; it is cleaned up
+		// on the next update.
+		_ = os.Remove(oldPath)
+		return nil
 	}
+
 	return os.Rename(tmpPath, exePath)
 }
